@@ -3,6 +3,7 @@ package com.neuragate.mock;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
@@ -14,6 +15,7 @@ import java.util.Random;
 
 /**
  * Day 11: Inventory Mock Service Controller
+ * Day 12: Added Fault Injection and Chaos Engineering
  * 
  * Simulates a real inventory service for testing the gateway.
  * This mock service demonstrates:
@@ -21,18 +23,22 @@ import java.util.Random;
  * - Circuit breaker and retry behavior
  * - Health monitoring integration
  * - Reactive endpoints
+ * - Fault injection for chaos testing
  * 
  * Runs on port 9001 (separate from gateway on 8080)
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/inventory")
+@RequiredArgsConstructor
 public class InventoryController {
 
+    private final ChaosSettings chaosSettings;
     private final Random random = new Random();
 
     /**
      * Get all inventory items.
+     * Day 12: Now includes chaos injection (latency and failures)
      * 
      * @return Flux of all products
      */
@@ -40,6 +46,41 @@ public class InventoryController {
     public Flux<Product> getAllInventory() {
         log.info("Fetching all inventory items");
 
+        // Day 12: Apply chaos settings
+        return applyChaos(getProductList());
+    }
+
+    /**
+     * Day 12: Apply chaos engineering settings to the response.
+     * 
+     * @param products Flux of products
+     * @return Flux with chaos applied (latency and/or failures)
+     */
+    private Flux<Product> applyChaos(Flux<Product> products) {
+        int latency = chaosSettings.getLatencyMs();
+        int failureRate = chaosSettings.getFailureRate();
+
+        // Apply latency if configured
+        if (latency > 0) {
+            log.warn("💥 Chaos: Injecting {}ms latency", latency);
+            products = products.delaySubscription(Duration.ofMillis(latency));
+        }
+
+        // Apply failure injection if configured
+        if (failureRate > 0 && random.nextInt(100) < failureRate) {
+            log.error("💥 Chaos: Injecting failure ({}% rate)", failureRate);
+            return Flux.error(new RuntimeException("Chaos-injected failure"));
+        }
+
+        return products;
+    }
+
+    /**
+     * Get the base product list.
+     * 
+     * @return Flux of all products
+     */
+    private Flux<Product> getProductList() {
         List<Product> products = List.of(
                 new Product(1L, "Laptop Pro 16", 2499.99, 15, "Electronics"),
                 new Product(2L, "Wireless Mouse", 29.99, 150, "Accessories"),
