@@ -1,4 +1,4 @@
-# Day 11: Inventory Mock Service Setup
+# Inventory Mock Service Setup
 
 ## Overview
 Created the first mock service to test NeuraGate's routing, circuit breaker, and retry capabilities.
