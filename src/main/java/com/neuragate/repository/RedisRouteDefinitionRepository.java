@@ -84,21 +84,23 @@ public class RedisRouteDefinitionRepository implements RouteDefinitionRepository
     /**
      * Day 9: Inject circuit breaker filter into dynamic routes.
      * Day 10: Also inject retry filter (Retry wraps CircuitBreaker)
+     * Day 13: Also inject rate limiter filter (optional, based on metadata)
      * 
      * This ensures ALL routes from Redis are automatically protected by
-     * both retry and circuit breaker patterns.
+     * retry, circuit breaker, and optionally rate limiting patterns.
      * 
      * Filter order matters:
-     * 1. Retry (outermost) - handles transient failures
-     * 2. CircuitBreaker (inner) - prevents cascading failures
+     * 1. RequestRateLimiter (outermost) - prevents traffic spikes
+     * 2. Retry (middle) - handles transient failures
+     * 3. CircuitBreaker (inner) - prevents cascading failures
      * 
      * Why this order?
-     * - Retry should wrap CB to retry when CB is closed
-     * - CB should protect against retry storms
-     * - Retry handles transient failures, CB handles persistent failures
+     * - Rate limiter first to reject excess traffic early
+     * - Retry handles transient failures for allowed requests
+     * - CB protects against retry storms and persistent failures
      * 
      * @param route The route definition from Redis
-     * @return The route with retry and circuit breaker filters injected
+     * @return The route with filters injected
      */
     private RouteDefinition injectCircuitBreakerFilter(RouteDefinition route) {
         // Check if route already has resilience filters
@@ -110,8 +112,12 @@ public class RedisRouteDefinitionRepository implements RouteDefinitionRepository
                 route.getFilters().stream()
                         .anyMatch(f -> "Retry".equals(f.getName()));
 
-        if (hasCircuitBreaker && hasRetry) {
-            logger.debug("Route '{}' already has retry and circuit breaker, skipping injection", route.getId());
+        boolean hasRateLimiter = route.getFilters() != null &&
+                route.getFilters().stream()
+                        .anyMatch(f -> "RequestRateLimiter".equals(f.getName()));
+
+        if (hasCircuitBreaker && hasRetry && hasRateLimiter) {
+            logger.debug("Route '{}' already has all resilience filters, skipping injection", route.getId());
             return route;
         }
 
@@ -144,7 +150,46 @@ public class RedisRouteDefinitionRepository implements RouteDefinitionRepository
             logger.info("Injected retry filter into route '{}'", route.getId());
         }
 
+        // Day 13: Add rate limiter if metadata indicates it should be enabled
+        if (!hasRateLimiter && shouldEnableRateLimiting(route)) {
+            FilterDefinition rateLimiterFilter = new FilterDefinition();
+            rateLimiterFilter.setName("RequestRateLimiter");
+            rateLimiterFilter.addArg("redis-rate-limiter.replenishRate", "10");
+            rateLimiterFilter.addArg("redis-rate-limiter.burstCapacity", "20");
+            rateLimiterFilter.addArg("key-resolver", "#{@ipKeyResolver}");
+
+            // Add rate limiter as first filter (outermost)
+            filters.add(0, rateLimiterFilter);
+            logger.info("Injected rate limiter filter into route '{}'", route.getId());
+        }
+
         route.setFilters(filters);
         return route;
+    }
+
+    /**
+     * Day 13: Check if rate limiting should be enabled for this route.
+     * 
+     * Checks route metadata for 'rate-limit-enabled' flag.
+     * Defaults to false if not specified.
+     * 
+     * @param route The route definition
+     * @return true if rate limiting should be enabled
+     */
+    private boolean shouldEnableRateLimiting(RouteDefinition route) {
+        if (route.getMetadata() == null) {
+            return false;
+        }
+
+        Object rateLimitEnabled = route.getMetadata().get("rate-limit-enabled");
+        if (rateLimitEnabled instanceof Boolean) {
+            return (Boolean) rateLimitEnabled;
+        }
+
+        if (rateLimitEnabled instanceof String) {
+            return Boolean.parseBoolean((String) rateLimitEnabled);
+        }
+
+        return false;
     }
 }
