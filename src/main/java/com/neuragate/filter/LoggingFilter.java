@@ -5,13 +5,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
-import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-// Global filter that logs every incoming request
+// Day 3: Global filter that logs every incoming request
+// Day 14: Refactored - now registered in GlobalFilterConfiguration
 // This is the foundation for the telemetry system we'll build later
-@Component
 public class LoggingFilter implements GlobalFilter, Ordered {
 
     private static final Logger logger = LoggerFactory.getLogger(LoggingFilter.class);
