@@ -1,5 +1,6 @@
 package com.neuragate.config;
 
+import com.neuragate.filter.CorrelationIdFilter;
 import com.neuragate.filter.LoggingFilter;
 import com.neuragate.filter.RateLimitResponseFilter;
 import com.neuragate.telemetry.TelemetryCaptureFilter;
@@ -11,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Day 14: Global Filter Configuration
  * Day 17: Added Telemetry Capture Filter
+ * Day 18: Added Correlation ID Filter
  * 
  * Centralized configuration for all global filters.
  * Refactored from individual filter classes for better organization.
@@ -19,13 +21,30 @@ import org.springframework.context.annotation.Configuration;
  * They execute in order based on their Ordered.getOrder() value.
  * 
  * Filter execution order:
- * 1. LoggingFilter (HIGHEST_PRECEDENCE) - Logs all requests/responses
- * 2. TelemetryCaptureFilter (HIGHEST_PRECEDENCE + 1) - Captures metrics
- * 3. RateLimitResponseFilter (LOWEST_PRECEDENCE) - Adds rate limit headers
+ * 1. CorrelationIdFilter (HIGHEST_PRECEDENCE) - Generates/propagates
+ * correlation IDs
+ * 2. LoggingFilter (HIGHEST_PRECEDENCE) - Logs all requests/responses
+ * 3. TelemetryCaptureFilter (HIGHEST_PRECEDENCE + 1) - Captures metrics
+ * 4. RateLimitResponseFilter (LOWEST_PRECEDENCE) - Adds rate limit headers
  */
 @Slf4j
 @Configuration
 public class GlobalFilterConfiguration {
+
+    /**
+     * Day 18: Correlation ID Filter
+     * 
+     * Generates and propagates correlation IDs for distributed tracing.
+     * Executes first (HIGHEST_PRECEDENCE) to ensure ID is available for all
+     * filters.
+     * 
+     * @return CorrelationIdFilter bean
+     */
+    @Bean
+    public CorrelationIdFilter correlationIdFilter() {
+        log.info("🔗 Registering global CorrelationIdFilter");
+        return new CorrelationIdFilter();
+    }
 
     /**
      * Day 3: Request/Response Logging Filter

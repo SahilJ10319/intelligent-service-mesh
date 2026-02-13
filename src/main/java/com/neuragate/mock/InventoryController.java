@@ -39,12 +39,15 @@ public class InventoryController {
     /**
      * Get all inventory items.
      * Day 12: Now includes chaos injection (latency and failures)
+     * Day 18: Logs correlation ID for distributed tracing
      * 
      * @return Flux of all products
      */
     @GetMapping
-    public Flux<Product> getAllInventory() {
-        log.info("Fetching all inventory items");
+    public Flux<Product> getAllInventory(
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
+        log.info("🔗 Fetching all inventory items - Correlation ID: {}",
+                correlationId != null ? correlationId : "NONE");
 
         // Day 12: Apply chaos settings
         return applyChaos(getProductList());

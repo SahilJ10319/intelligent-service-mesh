@@ -74,6 +74,13 @@ public class GatewayTelemetry {
     private Instant timestamp;
 
     /**
+     * Correlation ID for distributed tracing.
+     * Unique identifier that travels through the entire request chain.
+     * Enables end-to-end tracing across multiple services.
+     */
+    private String correlationId;
+
+    /**
      * Client IP address.
      * Used for traffic analysis and rate limiting insights.
      */

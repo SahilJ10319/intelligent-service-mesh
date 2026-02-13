@@ -88,6 +88,9 @@ public class TelemetryCaptureFilter implements GlobalFilter, Ordered {
             HttpStatus statusCode = exchange.getResponse().getStatusCode();
             Integer status = statusCode != null ? statusCode.value() : null;
 
+            // Day 18: Extract correlation ID
+            String correlationId = exchange.getAttribute("correlationId");
+
             // Extract client information
             String clientIp = exchange.getRequest().getRemoteAddress() != null
                     ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
@@ -109,6 +112,7 @@ public class TelemetryCaptureFilter implements GlobalFilter, Ordered {
                     .status(status)
                     .latency(latency)
                     .timestamp(timestamp)
+                    .correlationId(correlationId)
                     .clientIp(clientIp)
                     .userAgent(userAgent)
                     .rateLimited(rateLimited)
