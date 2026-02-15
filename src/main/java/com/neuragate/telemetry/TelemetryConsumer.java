@@ -37,6 +37,7 @@ import org.springframework.stereotype.Service;
 public class TelemetryConsumer {
 
     private final MetricsBuffer metricsBuffer;
+    private final AnomalyDetector anomalyDetector;
 
     /**
      * Consume telemetry events from Kafka.
@@ -67,6 +68,9 @@ public class TelemetryConsumer {
 
             // Store in metrics buffer for real-time analysis
             metricsBuffer.addMetric(telemetry);
+
+            // Day 21: Analyze for anomalies
+            anomalyDetector.analyze(telemetry);
 
             // Log info for important events
             if (telemetry.getStatus() != null && telemetry.getStatus() >= 500) {

@@ -1,0 +1,27 @@
+# Day 20: Prometheus Configuration for NeuraGate
+# Scrapes metrics from the gateway's /actuator/prometheus endpoint
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'neuragate'
+    environment: 'development'
+
+# Scrape configurations
+scrape_configs:
+  # NeuraGate Gateway metrics
+  - job_name: 'neuragate-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+        labels:
+          service: 'gateway'
+          component: 'api-gateway'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
