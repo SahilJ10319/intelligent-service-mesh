@@ -1,5 +1,6 @@
 package com.neuragate.telemetry;
 
+import com.neuragate.dashboard.SseEmitterService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -38,6 +39,7 @@ public class TelemetryConsumer {
 
     private final MetricsBuffer metricsBuffer;
     private final AnomalyDetector anomalyDetector;
+    private final SseEmitterService sseEmitterService;
 
     /**
      * Consume telemetry events from Kafka.
@@ -71,6 +73,9 @@ public class TelemetryConsumer {
 
             // Day 21: Analyze for anomalies
             anomalyDetector.analyze(telemetry);
+
+            // Day 25: Broadcast to live dashboard via SSE
+            sseEmitterService.broadcastTelemetry(telemetry);
 
             // Log info for important events
             if (telemetry.getStatus() != null && telemetry.getStatus() >= 500) {
