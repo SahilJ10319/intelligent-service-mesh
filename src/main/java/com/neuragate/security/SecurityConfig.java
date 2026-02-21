@@ -52,16 +52,19 @@ public class SecurityConfig {
                 // ── CSRF disabled (stateless JWT API) ─────────────────────
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
 
-                // ── Authorization rules ────────────────────────────────────
+                // ── Day 27: Granular RBAC authorization rules ──────────────
                 .authorizeExchange(exchanges -> exchanges
-                        // Protected: admin operations
-                        .pathMatchers("/admin/**").hasRole("ADMIN")
 
-                        // Protected: AI advisor and autonomous actions
-                        .pathMatchers("/ai/**").authenticated()
+                        // ADMIN only: stress tests, chaos control, system config
+                        .pathMatchers("/admin/**").hasRole(Role.ADMIN.name())
 
-                        // Protected: live dashboard
-                        .pathMatchers("/dashboard/**").authenticated()
+                        // ADVISOR: AI analysis, advice, autonomous actions
+                        .pathMatchers("/ai/analyze", "/ai/audit-log", "/ai/prompt").hasRole(Role.ADVISOR.name())
+
+                        // VIEWER: read-only AI endpoints and live dashboard
+                        .pathMatchers("/ai/system-prompt").hasAnyRole(Role.ADVISOR.name(), Role.VIEWER.name())
+                        .pathMatchers("/dashboard/**")
+                        .hasAnyRole(Role.ADMIN.name(), Role.ADVISOR.name(), Role.VIEWER.name())
 
                         // Public: Prometheus scraping
                         .pathMatchers("/actuator/prometheus").permitAll()
@@ -71,13 +74,13 @@ public class SecurityConfig {
                         // Public: static dashboard HTML
                         .pathMatchers("/index.html", "/", "/favicon.ico").permitAll()
 
-                        // Public: mock inventory service
+                        // Public: mock inventory service (chaos targets)
                         .pathMatchers("/inventory/**").permitAll()
 
-                        // Public: token endpoint
+                        // Public: token issuance
                         .pathMatchers("/auth/**").permitAll()
 
-                        // All other requests permitted (gateway proxies them)
+                        // All other gateway-proxied routes pass through
                         .anyExchange().permitAll())
 
                 // ── JWT filter ─────────────────────────────────────────────
