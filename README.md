@@ -1,73 +1,232 @@
-# NeuraGate - Intelligent Service Mesh
+<div align="center">
 
-High-concurrency API Gateway built with Java 21 Virtual Threads, designed for managing traffic between upstream consumers and downstream services with AI-powered routing optimization.
+# 🧠 NeuraGate
 
-## Core Architecture
+### Intelligent Service Mesh — AI-Driven API Gateway
 
-### Technology Stack
-- **Java 21** - Virtual Threads for massive concurrency
-- **Spring Boot 3.4** - Modern reactive framework
-- **Spring Cloud Gateway** - Dynamic routing engine
-- **Netflix DGS** - GraphQL federation
-- **Resilience4j** - Circuit breakers and retry policies
-- **Redis** - Distributed route storage
-- **Apache Kafka** - Async telemetry streaming
-- **Ollama (Llama 3.2)** - AI advisory routing via Spring AI
+*A production-grade, self-healing API gateway built with Java 21, Spring Cloud, and autonomous AI operations.*
 
-### Key Features
+---
 
-#### 1. Virtual Threads
-Enabled via `spring.threads.virtual.enabled=true`. Each request gets its own lightweight virtual thread, allowing us to handle tens of thousands of concurrent connections without traditional thread pool overhead.
+![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![Spring Cloud Gateway](https://img.shields.io/badge/Spring_Cloud_Gateway-4.x-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
+![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-7.x-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-latest-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-RBAC-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 
-#### 2. Dynamic Routing
-Routes are stored in Redis and can be modified at runtime without redeployment. External systems (including the AI advisory service) can modify routes by writing to Redis.
+</div>
 
-#### 3. Anti-Fragile Design
-If Redis becomes unavailable, the gateway automatically falls back to an in-memory cache of critical routes. The system degrades gracefully rather than failing completely.
+---
 
-#### 4. Circuit Breakers
-Resilience4j circuit breakers protect downstream services from cascading failures. When a service is unhealthy, requests fail fast with a degraded response instead of timing out.
+## What is NeuraGate?
 
-#### 5. Exponential Backoff with Jitter
-Retry policies use exponential backoff with random jitter to prevent thundering herd problems when services recover.
+NeuraGate is an **intelligent, self-healing API gateway** that goes beyond simple request routing. It observes its own telemetry, detects anomalies in real-time, consults an AI advisor, and — when confidence is high enough — takes corrective action autonomously.
 
-## Why This Project?
+This project demonstrates enterprise-grade engineering concepts including **event-driven architecture**, **reactive programming with Project Loom**, **autonomous AI-driven operations**, and **production-ready observability**, all built on the modern Java 21 + Spring Cloud ecosystem.
 
-NeuraGate demonstrates deep understanding of production-grade distributed systems architecture, inspired by Netflix's Chaos Engineering principles and modern service mesh patterns. This project showcases:
+---
 
-- **Technical Proficiency**: Mastery of Java 21 Virtual Threads, reactive programming, and Spring Cloud Gateway ecosystem
-- **Chaos Engineering**: Anti-fragile design patterns similar to Netflix's Chaos Monkey, with graceful degradation and fail-safe routing
-- **Real-World Applicability**: Production-ready patterns for high-concurrency API gateways, microservices routing, and dynamic traffic management
-- **Modern Stack**: Demonstrates expertise in cutting-edge technologies (Virtual Threads, reactive Redis, AI-powered routing) relevant to enterprise environments
+## ✨ Key Features
 
-While built as a learning showcase, NeuraGate's architecture is production-ready and can be deployed as a lightweight service mesh for microservices environments, API gateway for high-traffic applications, or intelligent routing layer with AI-driven optimization.
+| Feature | Description |
+|---|---|
+| 🤖 **Autonomous AI Advisor** | Rule-based heuristics (LLM-ready) generate structured recommendations; confidence-gated auto-execution applies circuit-breaker and rate-limit changes with a full audit trail |
+| ⚡ **Virtual Thread Performance** | All I/O runs on Project Loom virtual threads — carrier-thread-safe, sub-millisecond overhead, scales to thousands of concurrent connections |
+| 🔄 **Event-Driven Telemetry** | Every request publishes a `GatewayTelemetry` event to Kafka; a parallel consumer pipeline aggregates metrics, detects anomalies, and feeds the AI advisor |
+| 🛡️ **Self-Healing Circuit Breakers** | Resilience4j circuit breakers trip on consecutive failures; the AI advisor lowers failure thresholds before they cascade |
+| 📊 **Real-Time Dashboard** | Dark-themed SSE-powered UI at `/index.html`; live request feed, 6 metric cards, AI decision log — zero page refreshes |
+| 🔐 **Reactive JWT RBAC** | Stateless `SecurityWebFilterChain` with three roles: `ADMIN`, `ADVISOR`, `VIEWER`; path-based rules enforce least-privilege access |
+| 🔥 **Built-in Stress Tester** | `POST /admin/test/stress/start` fires 1,000 req/min at chaos endpoints to prove circuit breaker and telemetry behaviour under pressure |
+| 📈 **Prometheus Integration** | 11 custom Micrometer gauges (`gateway.latency.*`, `gateway.error.rate`, `gateway.anomalies.total`) scraped by a co-located Prometheus container |
+| 🗂️ **Redis Route Store** | Dynamic route definitions persisted in Redis — update routing rules at runtime without restarting the gateway |
 
-## Project Structure Draft
+---
+
+## 🏗️ Architecture Overview
 
 ```
-com.neuragate/
-├── NeuraGateApplication.java          # Main entry point
-├── gateway/
-│   ├── config/
-│   │   ├── GatewayConfig.java         # Gateway route locator wiring
-│   │   ├── RedisConfig.java           # Reactive Redis template
-│   │   └── ResilienceConfig.java      # Circuit breaker registries
-│   ├── controller/
-│   │   ├── FallbackController.java    # Circuit breaker fallback endpoint
-│   │   └── RouteAdminController.java  # Admin API for route management
-│   ├── model/
-│   │   ├── RouteDefinition.java       # Route configuration model
-│   │   └── TelemetryEvent.java        # Kafka telemetry event
-│   ├── repository/
-│   │   ├── RouteRepository.java       # Route storage interface
-│   │   ├── RedisRouteRepository.java  # Redis implementation
-│   │   └── InMemoryRouteRepository.java # Fallback implementation
-│   └── service/
-│       └── DynamicRouteService.java   # Core routing logic
+                          ┌──────────────────────────────────────────────┐
+                          │              NeuraGate Mesh                  │
+                          │                                              │
+  Client Request  ──────► │  Spring Cloud Gateway (Virtual Threads)      │
+                          │        │           │                          │
+                          │   Rate Limiter   Circuit Breaker              │
+                          │   (Redis token)  (Resilience4j)               │
+                          │        │                                      │
+                          │   Telemetry Producer ──► Kafka ──► Consumer  │
+                          │                                      │        │
+                          │                          MetricsBuffer        │
+                          │                          AnomalyDetector      │
+                          │                          AI Advisor           │
+                          │                          ActionExecutor       │
+                          │                                              │
+                          │   Redis ◄─── Dynamic Routes                  │
+                          │   Prometheus ◄─── Micrometer Gauges          │
+                          │   Dashboard ◄─── SSE Stream                  │
+                          └──────────────────────────────────────────────┘
 ```
 
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full Mermaid diagram and technical deep dive.
 
+---
 
-## License
+## 🚀 Quick Start
 
-MIT
+### Prerequisites
+- Docker & Docker Compose
+- Java 21+ (for local development only)
+
+### One-Command Startup
+
+```bash
+# Clone the repository
+git clone https://github.com/SahilJ10319/intelligent-service-mesh.git
+cd intelligent-service-mesh
+
+# Start the entire mesh (Zookeeper → Kafka → Redis → Prometheus)
+docker-compose up -d
+
+# Build and run the gateway
+./mvnw spring-boot:run
+```
+
+> The gateway starts on **http://localhost:8080**
+
+### Verify the stack is healthy
+
+```bash
+# Gateway health
+curl http://localhost:8080/actuator/health
+
+# Prometheus metrics
+curl http://localhost:8080/actuator/prometheus
+
+# Live dashboard
+open http://localhost:8080/index.html
+
+# Prometheus UI
+open http://localhost:9090
+```
+
+---
+
+## 🔐 Authentication (RBAC)
+
+NeuraGate uses stateless JWT bearer tokens with three role levels.
+
+### Get a token
+
+```bash
+curl -X POST http://localhost:8080/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"username":"neuragate","password":"secret"}'
+```
+
+### Role Reference
+
+| Role | Paths | Purpose |
+|---|---|---|
+| `ROLE_ADMIN` | `/admin/**` | Stress tests, chaos controls, system management |
+| `ROLE_ADVISOR` | `/ai/analyze`, `/ai/audit-log`, `/ai/prompt` | AI analysis and recommendations |
+| `ROLE_VIEWER` | `/dashboard/**`, `/ai/system-prompt` | Read-only metrics and dashboard |
+
+### Call a secured endpoint
+
+```bash
+TOKEN="<your-jwt-here>"
+
+# AI Analysis (requires ADVISOR+)
+curl http://localhost:8080/ai/analyze \
+  -H "Authorization: Bearer $TOKEN"
+
+# Trigger stress test (requires ADMIN)
+curl -X POST http://localhost:8080/admin/test/stress/start \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## 🧪 AI Advisor Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/ai/analyze` | GET | Run full AI analysis of recent metrics |
+| `/ai/analyze?autoExecute=true` | GET | Run analysis + auto-apply if confidence ≥ 80% |
+| `/ai/audit-log` | GET | View all autonomous config changes |
+| `/ai/prompt` | GET | Inspect the LLM prompt (debug) |
+| `/ai/system-prompt` | GET | View the AI's role definition |
+
+---
+
+## 🔥 Stress Testing
+
+```bash
+# 1. (Optional) Configure chaos before the test
+curl -X POST http://localhost:8080/admin/test/chaos \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"failureRate": 30, "latencyMs": 200}'
+
+# 2. Start the load generator (1,000 req/min for 60s)
+curl -X POST http://localhost:8080/admin/test/stress/start \
+  -H "Authorization: Bearer $TOKEN"
+
+# 3. Watch live SSE progress
+curl -N http://localhost:8080/admin/test/stress/events \
+  -H "Authorization: Bearer $TOKEN"
+
+# 4. Reset chaos after test
+curl -X POST http://localhost:8080/admin/test/chaos/reset \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## 📁 Project Structure
+
+```
+src/main/java/com/neuragate/
+├── config/          # Route config, Kafka, rate limiter, circuit breaker
+├── gateway/         # Core filter chain, telemetry producer, fallback
+├── telemetry/       # Kafka consumer, MetricsBuffer, AnomalyDetector
+├── ai/              # AiAdvisorService, ActionExecutor, ConfigUpdateEvent
+├── dashboard/       # DashboardController, SseEmitterService
+├── security/        # SecurityConfig, JwtAuthManager, Role enum
+├── stresstesting/   # LoadTestService, StressTestController
+├── mock/            # ChaosSettings, InventoryController, MockConfigController
+├── health/          # GatewayHealthIndicator
+└── repository/      # RedisRouteDefinitionRepository
+```
+
+---
+
+## 🗓️ 30-Day Build Diary
+
+| Days | Milestone |
+|---|---|
+| 1–5 | Project setup, Spring Cloud Gateway routing, Redis integration |
+| 6–10 | Rate limiting, circuit breakers, health checks, Resilience4j |
+| 11–15 | Mock chaos service, Kafka integration, event-driven telemetry |
+| 16–19 | MetricsBuffer, telemetry consumer pipeline, real-time aggregation |
+| 20–21 | Prometheus metrics (11 custom gauges), anomaly detection |
+| 22–23 | AI Advisor core, prompt engineering, structured LLM response DTOs |
+| 24 | Autonomous ActionExecutor with confidence-gated auto-execution |
+| 25 | Real-time SSE dashboard with live request feed and AI decision log |
+| 26 | Reactive JWT authentication (HMAC-SHA256, stateless) |
+| 27–28 | RBAC (ADMIN/ADVISOR/VIEWER), built-in 1,000 req/min stress tester |
+| 29–30 | Production docs, architecture deep dive, docker-compose polish |
+
+---
+
+## 🤝 Contributing
+
+This project was built as a 30-day engineering demonstration. Issues, improvements, and pull requests are welcome.
+
+---
+
+<div align="center">
+Built with ☕ and Project Loom by <a href="https://github.com/SahilJ10319">SahilJ10319</a>
+</div>
