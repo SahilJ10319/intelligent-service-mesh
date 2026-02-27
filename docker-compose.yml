@@ -141,6 +141,36 @@ services:
       retries: 3
       start_period: 10s
 
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  # Pre-provisioned with Prometheus datasource and NeuraGate dashboard
+  # Access: http://localhost:3000  |  admin / neuragate
+  grafana:
+    image: grafana/grafana:latest
+    container_name: neuragate-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: neuragate
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_SERVER_ROOT_URL: http://localhost:3000
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - neuragate-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 # ── Named volumes (persistent data survives container restarts) ──────────────
 volumes:
   zookeeper-data:
@@ -153,6 +183,8 @@ volumes:
     name: neuragate-redis-data
   prometheus-data:
     name: neuragate-prometheus-data
+  grafana-data:
+    name: neuragate-grafana-data
 
 # ── Isolated bridge network ───────────────────────────────────────────────────
 networks:
