@@ -52,8 +52,24 @@ public class SecurityConfig {
                 // ── CSRF disabled (stateless JWT API) ─────────────────────
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
 
+                // ── Disable form login and basic auth (JWT-only) ───────────
+                .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
+                .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
+
                 // ── Day 27: Granular RBAC authorization rules ──────────────
                 .authorizeExchange(exchanges -> exchanges
+
+                        // Public: everything load-balancer and actuator
+                        .pathMatchers("/actuator/**").permitAll()
+
+                        // Public: static dashboard HTML + all static assets
+                        .pathMatchers("/", "/index.html", "/favicon.ico", "/**/*.css", "/**/*.js").permitAll()
+
+                        // Public: mock inventory service (chaos targets)
+                        .pathMatchers("/inventory/**").permitAll()
+
+                        // Public: token issuance
+                        .pathMatchers("/auth/**").permitAll()
 
                         // ADMIN only: stress tests, chaos control, system config
                         .pathMatchers("/admin/**").hasRole(Role.ADMIN.name())
@@ -66,20 +82,6 @@ public class SecurityConfig {
                         .pathMatchers("/dashboard/**")
                         .hasAnyRole(Role.ADMIN.name(), Role.ADVISOR.name(), Role.VIEWER.name())
 
-                        // Public: Prometheus scraping
-                        .pathMatchers("/actuator/prometheus").permitAll()
-                        .pathMatchers("/actuator/health").permitAll()
-                        .pathMatchers("/actuator/info").permitAll()
-
-                        // Public: static dashboard HTML
-                        .pathMatchers("/index.html", "/", "/favicon.ico").permitAll()
-
-                        // Public: mock inventory service (chaos targets)
-                        .pathMatchers("/inventory/**").permitAll()
-
-                        // Public: token issuance
-                        .pathMatchers("/auth/**").permitAll()
-
                         // All other gateway-proxied routes pass through
                         .anyExchange().permitAll())
 
@@ -89,13 +91,13 @@ public class SecurityConfig {
                 // ── 401 / 403 responses ────────────────────────────────────
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((exchange, e) -> {
-                            log.warn("🔒 Unauthorized access to {}: {}",
+                            log.warn("Unauthorized access to {}: {}",
                                     exchange.getRequest().getPath(), e.getMessage());
                             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                             return exchange.getResponse().setComplete();
                         })
                         .accessDeniedHandler((exchange, e) -> {
-                            log.warn("🚫 Access denied to {}: {}",
+                            log.warn("Access denied to {}: {}",
                                     exchange.getRequest().getPath(), e.getMessage());
                             exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                             return exchange.getResponse().setComplete();
