@@ -57,8 +57,9 @@ public class TelemetryCaptureFilter implements GlobalFilter, Ordered {
         exchange.getAttributes().put(REQUEST_TIMESTAMP_ATTR, timestamp);
 
         // Continue filter chain, then capture telemetry after response
-        return chain.filter(exchange)
-                .then(Mono.fromRunnable(() -> captureTelemetry(exchange, startTime, timestamp)))
+        Mono<Void> result = chain.filter(exchange);
+        return result
+                .then(Mono.<Void>fromRunnable(() -> captureTelemetry(exchange, startTime, timestamp)))
                 .doOnError(throwable -> captureTelemetryWithError(exchange, startTime, timestamp, throwable));
     }
 
