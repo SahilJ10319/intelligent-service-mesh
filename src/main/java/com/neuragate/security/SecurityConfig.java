@@ -62,8 +62,8 @@ public class SecurityConfig {
                         // Public: everything load-balancer and actuator
                         .pathMatchers("/actuator/**").permitAll()
 
-                        // Public: static dashboard HTML + all static assets
-                        .pathMatchers("/", "/index.html", "/favicon.ico", "/**/*.css", "/**/*.js").permitAll()
+                        // Public: static dashboard HTML
+                        .pathMatchers("/", "/index.html", "/favicon.ico").permitAll()
 
                         // Public: mock inventory service (chaos targets)
                         .pathMatchers("/inventory/**").permitAll()
