@@ -7,28 +7,26 @@ import com.neuragate.ai.ConfigUpdateEvent;
 import com.neuragate.telemetry.MetricsBuffer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
 
 /**
- * Day 25: Dashboard Controller
+ * Day 25 (WebFlux): Dashboard Controller
  *
  * Serves live metrics and AI decision data for the monitoring dashboard.
  *
  * Endpoints:
- * - GET /dashboard/stream – SSE stream for real-time updates
+ * - GET /dashboard/stream – reactive SSE stream (text/event-stream)
  * - GET /dashboard/metrics – Current metrics snapshot (JSON)
  * - GET /dashboard/ai-log – Recent AI decisions (JSON)
- * - GET /dashboard/status – Gateway health summary (JSON)
- *
- * The static HTML dashboard (index.html) is served by Spring Boot's
- * default static-resource handler from src/main/resources/static/.
+ * - GET /dashboard/status – Gateway summary (JSON)
  */
 @Slf4j
 @RestController
@@ -43,10 +41,10 @@ public class DashboardController {
 
     // ── SSE stream ────────────────────────────────────────────────────────────
 
-    @GetMapping("/stream")
-    public SseEmitter stream() {
-        log.info("📡 New SSE client connected to /dashboard/stream");
-        return sseEmitterService.register();
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> stream() {
+        log.info("SSE client connected to /dashboard/stream");
+        return sseEmitterService.stream();
     }
 
     // ── REST snapshots ────────────────────────────────────────────────────────
@@ -78,7 +76,6 @@ public class DashboardController {
 
     // ── Scheduled broadcast ───────────────────────────────────────────────────
 
-    /** Push a metrics snapshot to all SSE clients every 5 seconds. */
     @Scheduled(fixedRate = 5000, initialDelay = 5000)
     public void pushMetricsSnapshot() {
         if (sseEmitterService.getConnectedClients() == 0)

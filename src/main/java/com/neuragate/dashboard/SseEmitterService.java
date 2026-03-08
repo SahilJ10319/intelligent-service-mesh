@@ -4,111 +4,100 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neuragate.telemetry.GatewayTelemetry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
-import java.io.IOException;
-import java.util.List;
+import java.time.Instant;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Day 25: Server-Sent Events (SSE) Service
+ * Day 25 (WebFlux fix): Server-Sent Events Service using reactive Sinks.
  *
- * Pushes live telemetry updates from the Kafka consumer directly to the
- * dashboard without a page refresh. Each browser tab that opens the
- * dashboard registers an SseEmitter here; when a new telemetry event
- * arrives the TelemetryConsumer calls broadcastTelemetry() and every
- * connected client receives the update instantly.
- *
- * Design:
- * - CopyOnWriteArrayList: safe for concurrent add/remove of emitters
- * - Timeout: 5 minutes per emitter (browser will reconnect automatically)
- * - Dead emitters are pruned on every broadcast
+ * Replaces the MVC SseEmitter with a WebFlux-compatible Sinks.Many multicast
+ * bus. DashboardController exposes the Flux as a text/event-stream endpoint.
+ * Every browser tab subscribed to /dashboard/stream gets each broadcast.
  */
 @Slf4j
 @Service
 public class SseEmitterService {
 
-    private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /** Register a new browser client. */
-    public SseEmitter register() {
-        SseEmitter emitter = new SseEmitter(300_000L); // 5-minute timeout
+    /**
+     * Multicast sink — all subscribers receive all events.
+     * onBackpressureBuffer keeps events in a queue if a slow subscriber
+     * falls behind (bounded at 256 messages).
+     */
+    private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer(256, false);
 
-        emitter.onCompletion(() -> emitters.remove(emitter));
-        emitter.onTimeout(() -> {
-            emitter.complete();
-            emitters.remove(emitter);
-        });
-        emitter.onError(e -> emitters.remove(emitter));
+    private final AtomicInteger subscriberCount = new AtomicInteger(0);
 
-        emitters.add(emitter);
-        log.debug("📡 SSE client registered (total: {})", emitters.size());
-        return emitter;
-    }
+    // ── Public broadcast API ───────────────────────────────────────────────────
 
-    /** Broadcast a telemetry event to all connected clients. */
+    /** Called by TelemetryConsumer for every Kafka event. */
     public void broadcastTelemetry(GatewayTelemetry telemetry) {
-        if (emitters.isEmpty())
-            return;
-
         Map<String, Object> payload = Map.of(
                 "type", "telemetry",
-                "path", telemetry.getPath() != null ? telemetry.getPath() : "",
-                "method", telemetry.getMethod() != null ? telemetry.getMethod() : "",
+                "path", nullSafe(telemetry.getPath()),
+                "method", nullSafe(telemetry.getMethod()),
                 "status", telemetry.getStatus() != null ? telemetry.getStatus() : 0,
                 "latency", telemetry.getLatency() != null ? telemetry.getLatency() : 0,
-                "correlationId", telemetry.getCorrelationId() != null ? telemetry.getCorrelationId() : "",
-                "timestamp", telemetry.getTimestamp() != null ? telemetry.getTimestamp().toString() : "");
-
-        broadcast("telemetry", payload);
+                "correlationId", nullSafe(telemetry.getCorrelationId()),
+                "timestamp", telemetry.getTimestamp() != null
+                        ? telemetry.getTimestamp().toString()
+                        : Instant.now().toString());
+        emit("telemetry", payload);
     }
 
-    /** Broadcast an AI decision event to all connected clients. */
+    /** Called by AiAdvisorService when a decision is made. */
     public void broadcastAiDecision(String diagnosis, String severity, String action, int confidence) {
-        if (emitters.isEmpty())
-            return;
-
         Map<String, Object> payload = Map.of(
                 "type", "ai_decision",
                 "diagnosis", diagnosis,
                 "severity", severity,
                 "action", action,
                 "confidence", confidence,
-                "timestamp", java.time.Instant.now().toString());
-
-        broadcast("ai_decision", payload);
+                "timestamp", Instant.now().toString());
+        emit("ai_decision", payload);
     }
 
-    /**
-     * Broadcast a metrics snapshot (called every 5 seconds by DashboardController).
-     */
+    /** Called by DashboardController every 5 s. */
     public void broadcastMetricsSnapshot(Map<String, Object> snapshot) {
-        if (emitters.isEmpty())
-            return;
-        broadcast("metrics_snapshot", snapshot);
+        emit("metrics_snapshot", snapshot);
+    }
+
+    /** Returns the Flux that DashboardController exposes as SSE. */
+    public Flux<String> stream() {
+        return sink.asFlux()
+                .doOnSubscribe(s -> {
+                    subscriberCount.incrementAndGet();
+                    log.debug("SSE client connected (total: {})", subscriberCount.get());
+                })
+                .doOnCancel(() -> {
+                    subscriberCount.decrementAndGet();
+                    log.debug("SSE client disconnected (total: {})", subscriberCount.get());
+                });
+    }
+
+    public int getConnectedClients() {
+        return subscriberCount.get();
     }
 
     // ── internal ──────────────────────────────────────────────────────────────
 
-    private void broadcast(String eventName, Object data) {
-        List<SseEmitter> dead = new CopyOnWriteArrayList<>();
-
-        for (SseEmitter emitter : emitters) {
-            try {
-                String json = objectMapper.writeValueAsString(data);
-                emitter.send(SseEmitter.event().name(eventName).data(json));
-            } catch (IOException e) {
-                dead.add(emitter);
-                log.debug("SSE emitter dead, removing: {}", e.getMessage());
-            }
+    private void emit(String eventName, Object data) {
+        try {
+            // SSE format: "event: <name>\ndata: <json>\n\n"
+            String json = objectMapper.writeValueAsString(data);
+            String message = "event: " + eventName + "\ndata: " + json + "\n\n";
+            sink.tryEmitNext(message);
+        } catch (Exception e) {
+            log.debug("SSE emit error: {}", e.getMessage());
         }
-
-        emitters.removeAll(dead);
     }
 
-    public int getConnectedClients() {
-        return emitters.size();
+    private String nullSafe(String s) {
+        return s != null ? s : "";
     }
 }
