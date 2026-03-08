@@ -59,11 +59,7 @@ public class TelemetryCaptureFilter implements GlobalFilter, Ordered {
         // Continue filter chain, then capture telemetry after response
         return chain.filter(exchange)
                 .then(Mono.fromRunnable(() -> captureTelemetry(exchange, startTime, timestamp)))
-                .onErrorResume(throwable -> {
-                    // Capture telemetry even on error
-                    captureTelemetryWithError(exchange, startTime, timestamp, throwable);
-                    return Mono.<Void>error(throwable);
-                });
+                .doOnError(throwable -> captureTelemetryWithError(exchange, startTime, timestamp, throwable));
     }
 
     /**
