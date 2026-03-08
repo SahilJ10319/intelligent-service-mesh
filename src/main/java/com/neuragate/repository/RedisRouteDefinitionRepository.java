@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.FilterDefinition;
 import org.springframework.cloud.gateway.route.RouteDefinition;
@@ -30,7 +31,7 @@ public class RedisRouteDefinitionRepository implements RouteDefinitionRepository
     private final String routeKey;
 
     public RedisRouteDefinitionRepository(
-            ReactiveRedisTemplate<String, String> redisTemplate,
+            @Qualifier("reactiveStringRedisTemplate") ReactiveRedisTemplate<String, String> redisTemplate,
             ObjectMapper objectMapper,
             List<RouteDefinition> fallbackRoutes,
             @Value("${metadata.route-key}") String routeKey) {
