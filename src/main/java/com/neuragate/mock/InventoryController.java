@@ -109,7 +109,7 @@ public class InventoryController {
     public Mono<Product> getProductById(@PathVariable Long id) {
         log.info("Fetching product with id: {}", id);
 
-        return getAllInventory()
+        return getProductList()
                 .filter(p -> p.getId().equals(id))
                 .next()
                 .doOnSuccess(product -> {
@@ -131,7 +131,7 @@ public class InventoryController {
     public Flux<Product> getProductsByCategory(@PathVariable String category) {
         log.info("Fetching products in category: {}", category);
 
-        return getAllInventory()
+        return getProductList()
                 .filter(p -> p.getCategory().equalsIgnoreCase(category));
     }
 

@@ -6,7 +6,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.core.Ordered;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -85,7 +85,7 @@ public class TelemetryCaptureFilter implements GlobalFilter, Ordered {
             String method = exchange.getRequest().getMethod().name();
 
             // Extract response information
-            HttpStatus statusCode = exchange.getResponse().getStatusCode();
+            HttpStatusCode statusCode = exchange.getResponse().getStatusCode();
             Integer status = statusCode != null ? statusCode.value() : null;
 
             // Day 18: Extract correlation ID
@@ -99,10 +99,10 @@ public class TelemetryCaptureFilter implements GlobalFilter, Ordered {
             String userAgent = exchange.getRequest().getHeaders().getFirst("User-Agent");
 
             // Check for rate limiting (429 status)
-            boolean rateLimited = statusCode == HttpStatus.TOO_MANY_REQUESTS;
+            boolean rateLimited = statusCode != null && statusCode.value() == 429;
 
             // Check for circuit breaker (503 status with specific message)
-            boolean circuitBreakerTriggered = statusCode == HttpStatus.SERVICE_UNAVAILABLE;
+            boolean circuitBreakerTriggered = statusCode != null && statusCode.value() == 503;
 
             // Build telemetry event
             GatewayTelemetry telemetry = GatewayTelemetry.builder()
