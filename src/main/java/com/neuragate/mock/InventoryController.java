@@ -174,7 +174,7 @@ public class InventoryController {
     public Flux<Product> getInventorySlow(@RequestParam(defaultValue = "3000") int delayMs) {
         log.warn("Slow endpoint called with {}ms delay", delayMs);
 
-        return getAllInventory()
+        return getProductList()
                 .delayElements(Duration.ofMillis(delayMs / 10));
     }
 
@@ -193,7 +193,7 @@ public class InventoryController {
             return Flux.error(new RuntimeException("Simulated service failure"));
         }
 
-        return getAllInventory();
+        return getProductList();
     }
 
     /**
