@@ -62,8 +62,9 @@ public class SecurityConfig {
                         // Public: everything load-balancer and actuator
                         .pathMatchers("/actuator/**").permitAll()
 
-                        // Public: static dashboard HTML
+                        // Public: static dashboard HTML and API
                         .pathMatchers("/", "/index.html", "/favicon.ico").permitAll()
+                        .pathMatchers("/dashboard/**").permitAll()
 
                         // Public: mock inventory service (chaos targets)
                         .pathMatchers("/inventory/**").permitAll()
@@ -77,10 +78,8 @@ public class SecurityConfig {
                         // ADVISOR: AI analysis, advice, autonomous actions
                         .pathMatchers("/ai/analyze", "/ai/audit-log", "/ai/prompt").hasRole(Role.ADVISOR.name())
 
-                        // VIEWER: read-only AI endpoints and live dashboard
+                        // VIEWER: read-only AI endpoints
                         .pathMatchers("/ai/system-prompt").hasAnyRole(Role.ADVISOR.name(), Role.VIEWER.name())
-                        .pathMatchers("/dashboard/**")
-                        .hasAnyRole(Role.ADMIN.name(), Role.ADVISOR.name(), Role.VIEWER.name())
 
                         // All other gateway-proxied routes pass through
                         .anyExchange().permitAll())
