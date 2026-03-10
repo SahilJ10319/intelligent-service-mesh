@@ -75,6 +75,24 @@ public class DashboardController {
                 "timestamp", java.time.Instant.now().toString());
     }
 
+    @GetMapping("/feed")
+    public List<Map<String, Object>> feed() {
+        return metricsBuffer.getRecentMetrics().stream()
+                .sorted((a, b) -> {
+                    if (a.getTimestamp() == null || b.getTimestamp() == null)
+                        return 0;
+                    return b.getTimestamp().compareTo(a.getTimestamp());
+                })
+                .limit(50)
+                .map(t -> Map.<String, Object>of(
+                        "method", t.getMethod() != null ? t.getMethod() : "GET",
+                        "status", t.getStatus() != null ? t.getStatus() : 0,
+                        "path", t.getPath() != null ? t.getPath() : "/",
+                        "latency", t.getLatency() != null ? t.getLatency() : 0,
+                        "timestamp", t.getTimestamp() != null ? t.getTimestamp().toString() : ""))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     // ── Scheduled broadcast ───────────────────────────────────────────────────
 
     @Scheduled(fixedRate = 5000, initialDelay = 5000)

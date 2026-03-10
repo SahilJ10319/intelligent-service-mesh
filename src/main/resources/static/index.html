@@ -1016,6 +1016,35 @@
     }
     loadAiLog();
     setInterval(loadAiLog, 15000);
+
+    // Poll live feed every 2s (SSE telemetry events buffered by proxies)
+    const seenTimestamps = new Set();
+    async function loadFeed() {
+      try {
+        const r = await fetch('/dashboard/feed');
+        if (!r.ok) return;
+        const events = await r.json();
+        // Only add events we haven't seen before
+        let added = 0;
+        for (const t of events) {
+          const key = t.timestamp + t.path + t.status;
+          if (seenTimestamps.has(key)) continue;
+          seenTimestamps.add(key);
+          addFeedRow(t);
+          added++;
+          if (added >= 20) break; // don't flood on first load
+        }
+        // Keep set from growing forever
+        if (seenTimestamps.size > 500) {
+          const arr = [...seenTimestamps];
+          arr.splice(0, arr.length - 200);
+          seenTimestamps.clear();
+          arr.forEach(k => seenTimestamps.add(k));
+        }
+      } catch (_) { }
+    }
+    loadFeed();
+    setInterval(loadFeed, 2000);
   </script>
 </body>
 
