@@ -3,6 +3,7 @@ package com.neuragate.dashboard;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neuragate.telemetry.GatewayTelemetry;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -14,9 +15,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Day 25 (WebFlux fix): Server-Sent Events Service using reactive Sinks.
  *
- * Replaces the MVC SseEmitter with a WebFlux-compatible Sinks.Many multicast
- * bus. DashboardController exposes the Flux as a text/event-stream endpoint.
- * Every browser tab subscribed to /dashboard/stream gets each broadcast.
+ * Emits ServerSentEvent objects so Spring correctly renders the SSE
+ * "event:" and "data:" fields. The browser's EventSource.addEventListener()
+ * receives named events (telemetry, ai_decision, metrics_snapshot).
  */
 @Slf4j
 @Service
@@ -24,18 +25,13 @@ public class SseEmitterService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /**
-     * Multicast sink — all subscribers receive all events.
-     * onBackpressureBuffer keeps events in a queue if a slow subscriber
-     * falls behind (bounded at 256 messages).
-     */
-    private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer(256, false);
+    private final Sinks.Many<ServerSentEvent<String>> sink = Sinks.many().multicast().onBackpressureBuffer(256, false);
 
     private final AtomicInteger subscriberCount = new AtomicInteger(0);
 
     // ── Public broadcast API ───────────────────────────────────────────────────
 
-    /** Called by TelemetryConsumer for every Kafka event. */
+    /** Called by DashboardTelemetryFilter / TelemetryConsumer for every request. */
     public void broadcastTelemetry(GatewayTelemetry telemetry) {
         Map<String, Object> payload = Map.of(
                 "type", "telemetry",
@@ -68,15 +64,15 @@ public class SseEmitterService {
     }
 
     /** Returns the Flux that DashboardController exposes as SSE. */
-    public Flux<String> stream() {
+    public Flux<ServerSentEvent<String>> stream() {
         return sink.asFlux()
                 .doOnSubscribe(s -> {
                     subscriberCount.incrementAndGet();
-                    log.debug("SSE client connected (total: {})", subscriberCount.get());
+                    log.info("SSE client connected (total: {})", subscriberCount.get());
                 })
                 .doOnCancel(() -> {
                     subscriberCount.decrementAndGet();
-                    log.debug("SSE client disconnected (total: {})", subscriberCount.get());
+                    log.info("SSE client disconnected (total: {})", subscriberCount.get());
                 });
     }
 
@@ -88,10 +84,12 @@ public class SseEmitterService {
 
     private void emit(String eventName, Object data) {
         try {
-            // SSE format: "event: <name>\ndata: <json>\n\n"
             String json = objectMapper.writeValueAsString(data);
-            String message = "event: " + eventName + "\ndata: " + json + "\n\n";
-            sink.tryEmitNext(message);
+            ServerSentEvent<String> sse = ServerSentEvent.<String>builder()
+                    .event(eventName)
+                    .data(json)
+                    .build();
+            sink.tryEmitNext(sse);
         } catch (Exception e) {
             log.debug("SSE emit error: {}", e.getMessage());
         }

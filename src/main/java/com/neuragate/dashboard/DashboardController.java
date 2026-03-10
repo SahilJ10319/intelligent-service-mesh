@@ -8,6 +8,7 @@ import com.neuragate.telemetry.MetricsBuffer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,7 +43,7 @@ public class DashboardController {
     // ── SSE stream ────────────────────────────────────────────────────────────
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> stream() {
+    public Flux<ServerSentEvent<String>> stream() {
         log.info("SSE client connected to /dashboard/stream");
         return sseEmitterService.stream();
     }
