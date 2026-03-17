@@ -114,9 +114,9 @@ public class AiAdvisorService {
                 long circuitBreakerCount = metricsBuffer.getCircuitBreakerCount();
 
                 // Count by status code
-                long count2xx = metricsBuffer.getCountByStatus(200);
-                long count4xx = metricsBuffer.getCountByStatus(404) + metricsBuffer.getCountByStatus(429);
-                long count5xx = metricsBuffer.getCountByStatus(500) + metricsBuffer.getCountByStatus(503);
+                long count2xx = metricsBuffer.getCountByStatusRange(200, 299);
+                long count4xx = metricsBuffer.getCountByStatusRange(400, 499);
+                long count5xx = metricsBuffer.getCountByStatusRange(500, 599);
 
                 // Group by route
                 Map<String, Long> routeCounts = recentMetrics.stream()

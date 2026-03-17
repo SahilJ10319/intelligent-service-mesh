@@ -182,6 +182,19 @@ public class MetricsBuffer {
     }
 
     /**
+     * Get count of events by status code range.
+     *
+     * @param min Minimum status code (inclusive)
+     * @param max Maximum status code (inclusive)
+     * @return Count of events within this range
+     */
+    public long getCountByStatusRange(int min, int max) {
+        return buffer.stream()
+                .filter(m -> m.getStatus() != null && m.getStatus() >= min && m.getStatus() <= max)
+                .count();
+    }
+
+    /**
      * Get count of rate-limited requests.
      * 
      * @return Count of rate-limited events

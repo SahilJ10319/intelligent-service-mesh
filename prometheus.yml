@@ -14,7 +14,7 @@ scrape_configs:
   - job_name: 'neuragate-gateway'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['host.docker.internal:8080']
+      - targets: ['172.17.0.1:8080']
         labels:
           service: 'gateway'
           component: 'api-gateway'

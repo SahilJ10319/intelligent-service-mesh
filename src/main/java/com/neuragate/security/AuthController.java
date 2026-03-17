@@ -47,20 +47,30 @@ public class AuthController {
         String username = body.getOrDefault("username", "");
         String password = body.getOrDefault("password", "");
 
-        if (!devUsername.equals(username) || !devPassword.equals(password)) {
-            log.warn("🔒 Invalid credentials for user: {}", username);
-            return ResponseEntity.status(401)
-                    .body(Map.of("error", "Invalid credentials"));
+        // Check dev credentials
+        if (devUsername.equals(username) && devPassword.equals(password)) {
+            List<String> roles = List.of("ROLE_ADMIN");
+            String token = jwtAuthenticationManager.generateToken(username, roles, expirationMs);
+            log.info("🎫 Issued JWT for dev user: {} (roles: {})", username, roles);
+            return ResponseEntity.ok(Map.of("token", token, "expiresInMs", expirationMs, "roles", roles));
         }
 
-        List<String> roles = "admin".equals(username) ? List.of("ROLE_ADMIN") : List.of("ROLE_USER");
-        String token = jwtAuthenticationManager.generateToken(username, roles, expirationMs);
+        // Check RBAC test users: admin/admin123, advisor/advisor123, viewer/viewer123
+        Map<String, List<String>> testUsers = Map.of(
+                "admin:admin123", List.of("ROLE_ADMIN"),
+                "advisor:advisor123", List.of("ROLE_ADVISOR"),
+                "viewer:viewer123", List.of("ROLE_VIEWER")
+        );
 
-        log.info("🎫 Issued JWT for user: {} (roles: {})", username, roles);
+        String key = username + ":" + password;
+        if (testUsers.containsKey(key)) {
+            List<String> roles = testUsers.get(key);
+            String token = jwtAuthenticationManager.generateToken(username, roles, expirationMs);
+            log.info("🎫 Issued JWT for test user: {} (roles: {})", username, roles);
+            return ResponseEntity.ok(Map.of("token", token, "expiresInMs", expirationMs, "roles", roles));
+        }
 
-        return ResponseEntity.ok(Map.of(
-                "token", token,
-                "expiresInMs", expirationMs,
-                "roles", roles));
+        log.warn("🔒 Invalid credentials for user: {}", username);
+        return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
     }
 }

@@ -112,9 +112,9 @@ public class DashboardController {
                 "bufferUtilization", metricsBuffer.getUtilization(),
                 "rateLimitedCount", metricsBuffer.getRateLimitedCount(),
                 "circuitBreakerCount", metricsBuffer.getCircuitBreakerCount(),
-                "count2xx", metricsBuffer.getCountByStatus(200),
-                "count4xx", metricsBuffer.getCountByStatus(404) + metricsBuffer.getCountByStatus(429),
-                "count5xx", metricsBuffer.getCountByStatus(500) + metricsBuffer.getCountByStatus(503),
+                "count2xx", metricsBuffer.getCountByStatusRange(200, 299),
+                "count4xx", metricsBuffer.getCountByStatusRange(400, 499),
+                "count5xx", metricsBuffer.getCountByStatusRange(500, 599),
                 "timestamp", java.time.Instant.now().toString());
     }
 }
